@@ -1,35 +1,6 @@
 #include <iostream>
-#include <string>
+#include "BTree.h"
 using namespace std; 
-
-#define t 5
-#define NIL 0
-
-typedef struct Node{
-    int n;
-    int key[2*t-1];
-    bool leaf;
-    struct Node *child[2*t];
-    string data;
-}Node;
-
-typedef struct {
-    Node *root;
-}Tree;
-
-typedef struct {
-    Node* node;
-    int index;
-}Pos;
-
-Node *alloc_node();
-void free_node(Node *node);
-Pos search(Node* node, int key);
-void create(Tree *tree);
-void splitChild(Node* x, int i);
-void insertNonFull(Node* node, int key);
-void insert(Tree* T, int key);
-void gothrough(Node *node, int i);
 
 
 Node *alloc_node() {
@@ -37,7 +8,7 @@ Node *alloc_node() {
 }
 
 void free_node(Node *node) {
-    delete node;
+    delete[] node;
 }
 
 Pos search(Node* node, int key) {
@@ -75,7 +46,7 @@ void splitChild(Node* x, int i) {
         z->key[j] = y->key[t+j];
     }
     if(!y->leaf) {
-        for(int j = 0; j<t-1; j++)
+        for(int j = 0; j<t; j++)
             z->child[j] = y->child[t+j];
     }
     y->n = t-1;
@@ -133,6 +104,147 @@ void insert(Tree* T, int key) {
         
 }
 
+int indexOf(Node *node, int key) {
+    for(int i = 0; i < node->n; i++) {
+        if(node->key[i] == key) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int contains(Node *node, int key) {
+    Pos pos;
+    for(int i = 0; i <= node->n; i++) {
+        pos = search(node->child[i], key);
+        if(pos.node != NIL) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void deleteKey(Node *node, int key) {
+    int index = indexOf(node, key);
+    if(index > -1) {
+        if(node->leaf) {
+            for(int i = index; i < node->n-1; i++) {
+                node->key[i] = node->key[i+1];
+            }
+            node->n--;
+        }
+        else {
+            Node *preChild = node->child[index];
+            Node *postChild = node->child[index+1];
+            if(preChild->n >= t) {
+                int preKey = preChild->key[preChild->n-1];
+                node->key[index] = preKey;
+                deleteKey(preChild, preKey);
+            }
+            else if(postChild->n >= t){
+                int postKey = postChild->key[0];
+                node->key[index] = postKey;
+                deleteKey(postChild, postKey);
+            }
+            else {
+                preChild->key[t-1] = key;
+                for(int i = t; i < 2*t-1; i++) {
+                    preChild->key[i] = postChild->key[i-t];
+                }
+                for(int i = t; i <= 2*t-1; i++) {
+                    preChild->child[i] = postChild->child[i-t];
+                }
+                preChild->n = 2*t-1;
+                free_node(postChild);
+                for(int i = index; i < node->n-1; i++) {
+                    node->key[i] = node->key[i+1];
+                    node->child[i+1] = node->child[i+2];
+                }
+                node->n--;
+                deleteKey(preChild, key);
+            }
+        }
+    }
+    else {
+        int childIndex = contains(node, key);
+        
+        if(childIndex > -1) {
+            Node *child = node->child[childIndex];
+            if(child->n < t) {
+                int left = childIndex > 0 ? childIndex-1 : 0;
+                int right = childIndex < node->n ? childIndex+1 : childIndex;
+                cout << left <<":" << right << "\n";
+                Node *leftBrother = node->child[left];
+                Node *rightBrother = node->child[right];
+                if(leftBrother->n >= t) {
+                    for(int i = child->n; i > 0; i--) {
+                        child->key[i] = child->key[i-1];
+                    }
+                    for(int i = child->n+1; i > 0; i--) {
+                        child->child[i] = child->child[i-1];
+                    }
+                    child->key[0] = node->key[childIndex-1];
+                    child->child[0] = leftBrother->child[leftBrother->n];
+                    child->n++;
+                    node->key[childIndex-1] = leftBrother->key[leftBrother->n-1];
+                    leftBrother->n--;
+                }else if(rightBrother->n >= t) {
+                    child->key[child->n] = node->key[childIndex];
+                    child->child[child->n+1] = rightBrother->child[0];
+                    node->key[childIndex] = rightBrother->key[0];
+                    child->n++;
+
+                    for(int i = 0; i < child->n-1; i++) {
+                        rightBrother->key[i] = rightBrother->key[i+1];
+                    }
+                    for(int i = 0; i < child->n; i++) {
+                        rightBrother->child[i] = rightBrother->child[i+1];
+                    }
+                    rightBrother->n--;
+                }else {
+                    if(childIndex > 0) {
+                        leftBrother->key[t-1] = key;
+                        for(int i = t; i < 2*t-1; i++) {
+                            leftBrother->key[i] = child->key[i-t];
+                        }
+                        for(int i = t; i <= 2*t-1; i++) {
+                            leftBrother->child[i] = child->child[i-t];
+                        }
+                        leftBrother->n = 2*t-1;
+                        free_node(child);
+                        for(int i = index; i < node->n-1; i++) {
+                            node->key[i] = node->key[i+1];
+                            node->child[i+1] = node->child[i+2];
+                        }
+                        node->n--;
+                        child = leftBrother;
+                    }
+                    else {
+                        
+                        child->key[t-1] = key;
+                        for(int i = t; i < 2*t-1; i++) {
+                            child->key[i] = rightBrother->key[i-t];
+                        }
+                        for(int i = t; i <= 2*t-1; i++) {
+                            child->child[i] = rightBrother->child[i-t];
+                        }
+                        child->n = 2*t-1;
+                        cout << "hhhhh\n";
+                        free_node(rightBrother);
+                        
+                        for(int i = index; i < node->n-1; i++) {
+                            node->key[i] = node->key[i+1];
+                            node->child[i+1] = node->child[i+2];
+                        }
+                        node->n--;
+                    }
+                }
+            }
+            deleteKey(child, key);
+        }
+    }
+}
+
 void gothrough(Node *node, int i) {
     cout << i << "th\n";
     for(int j = 0; j<node->n; j++) {
@@ -149,9 +261,11 @@ void gothrough(Node *node, int i) {
 int main(int argc, char** args) {
     Tree *tree = new Tree();
     create(tree);
-    for(int i = 0; i<50; i++) {
+    for(int i = 0; i<100; i++) {
         cout << i << "\n";
         insert(tree, i);  
     }
+    gothrough(tree->root, 0);
+    deleteKey(tree->root, 0);
     gothrough(tree->root, 0);
 }
