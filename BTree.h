@@ -9,7 +9,6 @@ typedef struct Node{
     int key[2*t-1];
     bool leaf;
     struct Node *child[2*t];
-    string data;
 }Node;
 
 typedef struct {
@@ -28,5 +27,6 @@ void create(Tree *tree);
 void splitChild(Node* x, int i);
 void insertNonFull(Node* node, int key);
 void insert(Tree* T, int key);
-void deleteKey(Node *node, int key);
+void deleteKey_inner(Node *node, int key);
+void deleteKey(Tree *T, int key);
 void gothrough(Node *node, int i);
